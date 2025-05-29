@@ -1,0 +1,45 @@
+name: Generate Snapshot
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+  - cron: "5 0 * * *"
+  workflow_dispatch:
+
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Check out repository under $GITHUB_WORKSPACE, so the job can access it
+    - uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22.x'
+        cache-dependency-path: go.sum
+
+    - name: Install dependencies
+      run: go get .
+
+    # Generate all statistics images
+    - name: Generate images
+      run: go run ./main.go
+      env:
+        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        EXCLUDED: ${{ secrets.EXCLUDED }}
+        EXCLUDED_LANGS: ${{ secrets.EXCLUDED_LANGS }}
+        EXCLUDE_FORKED_REPOS: true
+
+    # Commit all changed files to the repository
+    - name: Commit to the repo
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: 'feat: updated snapshot images'
