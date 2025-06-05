@@ -72,58 +72,6 @@ type ReposOverviewQuery struct {
 	} `graphql:"viewer"`
 }
 
-type DebugQuery struct {
-	Viewer struct {
-		Login string
-		Name  string
-
-		Repositories struct {
-			PageInfo struct {
-				HasNextPage bool
-				EndCursor   string
-			}
-			Nodes []struct {
-				NameWithOwner string
-				Stargazers    struct {
-					TotalCount int
-				}
-				ForkCount int
-				Languages struct {
-					Edges []struct {
-						Size int
-						Node struct {
-							Name  string
-							Color string
-						}
-					}
-				} `graphql:"languages(first: 10, orderBy: {field: SIZE, direction: DESC})"`
-			}
-		} `graphql:"repositories(first: 100, isFork: false, after: $repoCursor)"`
-		RepositoriesContributedTo struct {
-			PageInfo struct {
-				HasNextPage bool
-				EndCursor   string
-			}
-			Nodes []struct {
-				NameWithOwner string
-				Stargazers    struct {
-					TotalCount int
-				}
-				ForkCount int
-				Languages struct {
-					Edges []struct {
-						Size int
-						Node struct {
-							Name  string
-							Color string
-						}
-					}
-				} `graphql:"languages(first: 10, orderBy: {field: SIZE, direction: DESC})"`
-			}
-		} `graphql:"repositoriesContributedTo(first: 100, includeUserRepositories: false, after: $contribCursor, contributionTypes: [COMMIT, PULL_REQUEST, REPOSITORY, PULL_REQUEST_REVIEW])"`
-	} `graphql:"viewer"`
-}
-
 type Snapshot struct {
 	user                string
 	accessToken         string
@@ -136,21 +84,10 @@ type Snapshot struct {
 	_stargazers         *int
 	_forks              *int
 	_totalContributions *int
-	_languages          map[string]*LangInfo //*LangInfo
+	_languages          map[string]*LangInfo
 	_repos              map[string]struct{}
 	_linesChanged       *[2]int // [0]: Added, [1]: Deleted
 	_views              *int
-
-	queries *Queries
-}
-
-type Queries struct {
-	user              string
-	accessToken       string
-	client            *http.Client
-	excludedRepos     []string
-	excludedLangs     []string
-	ignoreForkedRepos bool
 }
 
 type transportWithToken struct {
@@ -183,7 +120,6 @@ func NewSnapshot(user string, accessToken string, excludedRepos map[string]struc
 		excludedRepos:     excludedRepos,
 		excludedLangs:     excludedLangs,
 		ignoreForkedRepos: ignoreForkedRepos,
-		// queries: Queries(username, access_token, session),
 
 		_name:               nil,
 		_stargazers:         nil,
@@ -197,18 +133,9 @@ func NewSnapshot(user string, accessToken string, excludedRepos map[string]struc
 }
 
 func runQuery(self Snapshot, query *ReposOverviewQuery, variables map[string]interface{}) {
-	// var testQuery DebugQuery
 	vars := make(map[string]interface{})
 	vars["contribCursor"] = ""
 	vars["repoCursor"] = ""
-	// err := self.queryClient.Query(context.Background(), &testQuery, vars)
-	// if err != nil {
-	// log.Fatalf("Failed GraphQL: %s", err)
-	// }
-
-	// log.Fatalf("%s", testQuery.Viewer.Repositories.Nodes)
-	// log.Fatalf("%s", &query)
-	// log.Fatalf("%s | %s", vars, variables)
 
 	err := self.queryClient.Query(context.Background(), &query, variables)
 	if err != nil {
@@ -258,7 +185,6 @@ func getStats(self *Snapshot) {
 		statsQuery, cursors := reposOverview(stringPtrOrNil(repoCursor), stringPtrOrNil(contribCursor))
 		runQuery(*self, &statsQuery, cursors)
 
-		//get("data", {}).get("viewer", {}).get("name", None)
 		self._name = getViewerName(&statsQuery)
 
 		repos := statsQuery.Viewer.Repositories.Nodes
@@ -308,45 +234,6 @@ func getStats(self *Snapshot) {
 				}
 			}
 		}
-
-		// contrib_repos = (
-		//     raw_results.get("data", {})
-		//     .get("viewer", {})
-		//     .get("repositoriesContributedTo", {})
-		// )
-		// owned_repos = (
-		//     raw_results.get("data", {}).get("viewer", {}).get("repositories", {})
-		// )
-
-		// repos = owned_repos.get("nodes", [])
-		// if not self._ignore_forked_repos:
-		//     repos += contrib_repos.get("nodes", [])
-
-		// for repo in repos:
-		//     if repo is None:
-		//         continue
-		//     name = repo.get("nameWithOwner")
-		//     if name in self._repos or name in self._exclude_repos:
-		//         continue
-		//     self._repos.add(name)
-		//     self._stargazers += repo.get("stargazers").get("totalCount", 0)
-		//     self._forks += repo.get("forkCount", 0)
-
-		//     for lang in repo.get("languages", {}).get("edges", []):
-		//         name = lang.get("node", {}).get("name", "Other")
-		//         languages = await self.languages
-		//         if name.lower() in exclude_langs_lower:
-		//             continue
-		//         if name in languages:
-		//             languages[name]["size"] += lang.get("size", 0)
-		//             languages[name]["occurrences"] += 1
-		//         else:
-		//             languages[name] = {
-		//                 "size": lang.get("size", 0),
-		//                 "occurrences": 1,
-		//                 "color": lang.get("node", {}).get("color"),
-		//             }
-
 		// Update cursors
 		repoCursor = graphql.String(statsQuery.Viewer.Repositories.PageInfo.EndCursor)
 		contribCursor = graphql.String(statsQuery.Viewer.RepositoriesContributedTo.PageInfo.EndCursor)
@@ -356,27 +243,11 @@ func getStats(self *Snapshot) {
 			stillSearching = false
 		}
 
-		// if owned_repos.get("pageInfo", {}).get(
-		//     "hasNextPage", False
-		// ) or contrib_repos.get("pageInfo", {}).get("hasNextPage", False):
-		//     next_owned = owned_repos.get("pageInfo", {}).get(
-		//         "endCursor", next_owned
-		//     )
-		//     next_contrib = contrib_repos.get("pageInfo", {}).get(
-		//         "endCursor", next_contrib
-		//     )
-		// else{
 		stillSearching = false
-		// }
-
 	}
 
 	// # TODO: Improve languages to scale by number of contributions to
 	// #       specific filetypes
-	// langs_total = sum([v.get("size", 0) for v in self._languages.values()])
-	// for k, v in self._languages.items():
-	//     v["prop"] = 100 * (v.get("size", 0) / langs_total)
-
 	total := 0
 	for _, info := range self._languages {
 		total += info.Size

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"snapshot/internal/helpers"
@@ -92,9 +91,6 @@ func main() {
 	)
 
 	snapshot.GetRepos(&s)
-	x := snapshot.GetViews(&s)
-	fmt.Printf("Repo Views in last 2 weeks: %s\n", x)
 	generateOverview(&s)
 	generateLanguages(&s)
-	// await asyncio.gather(generate_languages(s), generate_overview(s))
 }
