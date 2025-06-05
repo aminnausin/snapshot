@@ -35,6 +35,8 @@ func GetListEnv(name string) (valueList map[string]struct{}) {
 		return
 	}
 
+	valueList = make(map[string]struct{})
+
 	for _, v := range strings.Split(strings.ToLower(value), ",") {
 		parsed := strings.TrimSpace(v)
 		if parsed != "" {
