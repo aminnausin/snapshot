@@ -6,6 +6,8 @@ import (
 	"os"
 	"snapshot/internal/helpers"
 	"snapshot/internal/snapshot"
+	"strconv"
+	"strings"
 )
 
 func validateOutputDir() error {
@@ -17,6 +19,53 @@ func validateOutputDir() error {
 		}
 	}
 	return nil
+}
+
+func check(e error) {
+	if e != nil {
+		panic(e)
+	}
+}
+
+func generateOverview(s *snapshot.Snapshot) {
+	dat, err := os.ReadFile("templates/overview.svg")
+	check(err)
+	output := strings.Replace(string(dat), "{{ name }}", snapshot.GetName(s), 1)
+	output = strings.Replace(output, "{{ stars }}", snapshot.GetStargazers(s), 1)
+	output = strings.Replace(output, "{{ forks }}", snapshot.GetForks(s), 1)
+	output = strings.Replace(output, "{{ contributions }}", snapshot.GetViews(s), 1)
+	output = strings.Replace(output, "{{ lines_changed }}", snapshot.GetViews(s), 1)
+	output = strings.Replace(output, "{{ repos }}", strconv.Itoa(len(snapshot.GetRepos(s))), 1)
+	output = strings.Replace(output, "{{ views }}", snapshot.GetViews(s), 1)
+
+	overview := []byte(output)
+	werr := os.WriteFile("generated/overview.svg", overview, 0644)
+	check(werr)
+}
+
+func generateLanguages(s *snapshot.Snapshot) {
+	const templatePath = "templates/languages.svg"
+	const outputPath = "generated/languages.svg"
+
+	dat, err := os.ReadFile(templatePath)
+	check(err)
+
+	progress := ""
+	langList := ""
+	sortedLanguages := helpers.SortLanguages(snapshot.GetLanguages(s))
+	delay := 50
+	for _, entry := range sortedLanguages {
+		progress += helpers.BuildProgressHTML(entry)
+		langList += helpers.BuildLangListHTML(entry, delay)
+		delay += 50
+	}
+
+	output := strings.Replace(string(dat), "{{ progress }}", progress, 1)
+	output = strings.Replace(output, "{{ lang_list }}", langList, 1)
+
+	overview := []byte(output)
+	werr := os.WriteFile(outputPath, overview, 0644)
+	check(werr)
 }
 
 func main() {
@@ -44,6 +93,8 @@ func main() {
 
 	snapshot.GetRepos(&s)
 	x := snapshot.GetViews(&s)
-	fmt.Println(x)
+	fmt.Printf("Repo Views in last 2 weeks: %s\n", x)
+	generateOverview(&s)
+	generateLanguages(&s)
 	// await asyncio.gather(generate_languages(s), generate_overview(s))
 }

@@ -4,11 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/hasura/go-graphql-client"
 )
+
+type LangInfo struct {
+	Size        int
+	Occurrences int
+	Colour      string
+	Prop        float64
+}
 
 type ReposOverviewQuery struct {
 	Viewer struct {
@@ -126,7 +136,7 @@ type Snapshot struct {
 	_stargazers         *int
 	_forks              *int
 	_totalContributions *int
-	_languages          map[string]any //*LangInfo
+	_languages          map[string]*LangInfo //*LangInfo
 	_repos              map[string]struct{}
 	_linesChanged       *[2]int // [0]: Added, [1]: Deleted
 	_views              *int
@@ -229,8 +239,14 @@ func getStats(self *Snapshot) {
 	// """
 	// Get lots of summary statistics using one big query. Sets many attributes
 	// """
-	// *self._stargazers = 0
-	// *self._forks = 0
+	if self._stargazers == nil {
+		tmp := 0
+		self._stargazers = &tmp
+	}
+	if self._forks == nil {
+		tmp := 0
+		self._forks = &tmp
+	}
 	self._repos = make(map[string]struct{})
 
 	repoCursor := graphql.String("")
@@ -257,6 +273,40 @@ func getStats(self *Snapshot) {
 			}
 
 			self._repos[repo.NameWithOwner] = struct{}{}
+
+			if repo.Stargazers.TotalCount > 0 {
+				*self._stargazers += repo.Stargazers.TotalCount
+			}
+			*self._forks += repo.ForkCount
+			for _, langEdge := range repo.Languages.Edges {
+				// Initialise languages
+				if self._languages == nil {
+					self._languages = make(map[string]*LangInfo)
+				}
+
+				// Check if language should be excluded
+				langName := langEdge.Node.Name
+				if _, excluded := self.excludedLangs[strings.ToLower(langName)]; excluded {
+					continue
+				}
+
+				// If already exists, add to size and occurances
+				// Otherwise make new
+				if entry, ok := self._languages[langName]; ok {
+					entry.Size += langEdge.Size
+					entry.Occurrences += 1
+				} else {
+					colour := langEdge.Node.Color
+					if colour == "" {
+						colour = "#000000"
+					}
+					self._languages[langName] = &LangInfo{
+						Size:        langEdge.Size,
+						Occurrences: 1,
+						Colour:      langEdge.Node.Color,
+					}
+				}
+			}
 		}
 
 		// contrib_repos = (
@@ -326,6 +376,17 @@ func getStats(self *Snapshot) {
 	// langs_total = sum([v.get("size", 0) for v in self._languages.values()])
 	// for k, v in self._languages.items():
 	//     v["prop"] = 100 * (v.get("size", 0) / langs_total)
+
+	total := 0
+	for _, info := range self._languages {
+		total += info.Size
+	}
+	for _, info := range self._languages {
+		if total > 0 {
+			info.Prop = float64(info.Size) * 100.0 / float64(total)
+		}
+	}
+
 }
 
 func reposOverview(ownedCursor, contribCursor *string) (ReposOverviewQuery, map[string]interface{}) {
@@ -348,9 +409,36 @@ func reposOverview(ownedCursor, contribCursor *string) (ReposOverviewQuery, map[
 }
 
 // Properties
-func GetViews(self *Snapshot) int {
+func GetName(self *Snapshot) string {
+	if self._name != nil {
+		return *self._name
+	}
+
+	getStats(self)
+	return *self._name
+}
+
+func GetStargazers(self *Snapshot) string {
+	if self._stargazers != nil {
+		return strconv.Itoa(*self._stargazers)
+	}
+
+	getStats(self)
+	return strconv.Itoa(*self._stargazers)
+}
+
+func GetForks(self *Snapshot) string {
+	if self._forks != nil {
+		return strconv.Itoa(*self._forks)
+	}
+
+	getStats(self)
+	return strconv.Itoa(*self._forks)
+}
+
+func GetViews(self *Snapshot) string {
 	if self._views != nil {
-		return *self._views
+		return strconv.Itoa(*self._views)
 	}
 
 	total := 0
@@ -369,21 +457,18 @@ func GetViews(self *Snapshot) int {
 		var res struct {
 			Count float64 `json:"count"`
 		}
+
 		if err := json.NewDecoder(response.Body).Decode(&res); err != nil {
 			log.Printf("Failed to decode: %v", err)
 			continue
 		}
-
-		// if v, ok := res["count"].(float64); ok {
-		// total += int(v)
-		// }
 
 		total += int(res.Count)
 
 	}
 
 	self._views = &total
-	return total
+	return strconv.Itoa(total)
 }
 
 func GetRepos(self *Snapshot) map[string]struct{} {
@@ -392,4 +477,57 @@ func GetRepos(self *Snapshot) map[string]struct{} {
 	}
 	getStats(self)
 	return self._repos
+}
+
+func GetContributions(self *Snapshot) string {
+	if self._totalContributions != nil {
+		return strconv.Itoa(*self._totalContributions)
+	}
+
+	*self._totalContributions = 0
+
+	getStats(self)
+	return strconv.Itoa(*self._totalContributions)
+}
+
+func GetLinesChanged(self *Snapshot) string {
+	if self._linesChanged != nil {
+		return strconv.Itoa(self._linesChanged[0] + self._linesChanged[1])
+	}
+
+	additions := 0
+	deletions := 0
+
+	for repo := range self._repos {
+		uri := fmt.Sprintf("https://api.github.com/repos/%s/stats/contributors", repo)
+
+		response, err := self.client.Get(uri)
+
+		if err != nil {
+			continue
+		}
+
+		defer response.Body.Close()
+
+		body, err := io.ReadAll(response.Body)
+
+		if err != nil {
+			log.Printf("Failed to read response body: %v", err)
+			continue
+		}
+
+		fmt.Printf("Response for %s:\n%s\n", repo, string(body))
+
+	}
+
+	self._linesChanged = &[2]int{additions, deletions}
+	return strconv.Itoa(self._linesChanged[0] + self._linesChanged[1])
+}
+
+func GetLanguages(self *Snapshot) map[string]*LangInfo {
+	if self._languages != nil {
+		return self._languages
+	}
+	getStats(self)
+	return self._languages
 }
