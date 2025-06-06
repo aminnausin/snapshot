@@ -8,16 +8,13 @@ import (
 	"github.com/joho/godotenv"
 )
 
-func readEnvFile() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+func ReadEnvFile() {
+	if _, err := os.Stat(".env"); err == nil {
+		_ = godotenv.Load()
 	}
 }
 
 func GetRequiredEnv(name string) (string, error) {
-	readEnvFile()
-
 	value, valueExists := os.LookupEnv(name)
 
 	if !valueExists {
@@ -28,7 +25,6 @@ func GetRequiredEnv(name string) (string, error) {
 }
 
 func GetListEnv(name string) (valueList map[string]struct{}) {
-	readEnvFile()
 	value, valueExists := os.LookupEnv(name)
 
 	if !valueExists {
@@ -48,7 +44,6 @@ func GetListEnv(name string) (valueList map[string]struct{}) {
 }
 
 func GetBooleanEnv(name string) bool {
-	readEnvFile()
 	value, valueExists := os.LookupEnv(name)
 	return valueExists && strings.ToLower(strings.TrimSpace(value)) != "false"
 }

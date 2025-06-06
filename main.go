@@ -69,6 +69,7 @@ func generateLanguages(s *snapshot.Snapshot) {
 
 func main() {
 	validateOutputDir()
+	helpers.ReadEnvFile()
 
 	accessToken, err1 := helpers.GetRequiredEnv("ACCESS_TOKEN")
 	user, err2 := helpers.GetRequiredEnv("GITHUB_ACTOR")
