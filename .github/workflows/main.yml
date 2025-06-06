@@ -14,27 +14,25 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    # Check out repository under $GITHUB_WORKSPACE, so the job can access it
     - uses: actions/checkout@v4
 
     - name: Setup Go
       uses: actions/setup-go@v5
       with:
         go-version: '1.22.x'
+        cache: true
         cache-dependency-path: go.sum
 
     - name: Install dependencies
-      run: go mod tidy && go get .
-
+      run: go mod tidy
     # Generate all statistics images
     - name: Generate images
       run: go run ./main.go
       env:
         ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        EXCLUDED: ${{ secrets.EXCLUDED }}
+        EXCLUDED_REPOS: ${{ secrets.EXCLUDED_REPOS }}
         EXCLUDED_LANGS: ${{ secrets.EXCLUDED_LANGS }}
         EXCLUDE_FORKED_REPOS: true
 
@@ -43,3 +41,4 @@ jobs:
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
         commit_message: 'feat: updated snapshot images'
+        file_pattern: generated/*
