@@ -17,7 +17,7 @@ func ReadEnvFile() {
 func GetRequiredEnv(name string) (string, error) {
 	value, valueExists := os.LookupEnv(name)
 
-	if !valueExists {
+	if !valueExists || value == "" {
 		log.Fatalf("No %s has been configured.", name)
 	}
 

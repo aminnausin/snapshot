@@ -75,7 +75,7 @@ func main() {
 	user, err2 := helpers.GetRequiredEnv("GITHUB_ACTOR")
 
 	if err1 != nil || err2 != nil {
-		log.Fatal("Failed")
+		log.Fatal("Failed loading required ENV")
 	}
 
 	excludedRepos := helpers.GetListEnv("EXCLUDED_REPOS")
