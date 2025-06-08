@@ -5,8 +5,9 @@ import (
 	"os"
 	"snapshot/internal/helpers"
 	"snapshot/internal/snapshot"
-	"strconv"
 	"strings"
+
+	"github.com/dustin/go-humanize"
 )
 
 func validateOutputDir() error {
@@ -30,12 +31,12 @@ func generateOverview(s *snapshot.Snapshot) {
 	dat, err := os.ReadFile("templates/overview.svg")
 	check(err)
 	output := strings.Replace(string(dat), "{{ name }}", snapshot.GetName(s), 1)
-	output = strings.Replace(output, "{{ stars }}", snapshot.GetStargazers(s), 1)
-	output = strings.Replace(output, "{{ forks }}", snapshot.GetForks(s), 1)
-	output = strings.Replace(output, "{{ contributions }}", snapshot.GetContributions(s), 1)
-	output = strings.Replace(output, "{{ lines_changed }}", snapshot.GetLinesChanged(s), 1)
-	output = strings.Replace(output, "{{ repos }}", strconv.Itoa(len(snapshot.GetRepos(s))), 1)
-	output = strings.Replace(output, "{{ views }}", snapshot.GetViews(s), 1)
+	output = strings.Replace(output, "{{ stars }}", humanize.Comma(int64(snapshot.GetStargazers(s))), 1)
+	output = strings.Replace(output, "{{ forks }}", humanize.Comma(int64(snapshot.GetForks(s))), 1)
+	output = strings.Replace(output, "{{ contributions }}", humanize.Comma(int64(snapshot.GetContributions(s))), 1)
+	output = strings.Replace(output, "{{ lines_changed }}", humanize.Comma(snapshot.GetLinesChanged(s)), 1)
+	output = strings.Replace(output, "{{ repos }}", humanize.Comma(int64(len(snapshot.GetRepos(s)))), 1)
+	output = strings.Replace(output, "{{ views }}", humanize.Comma(int64(snapshot.GetViews(s))), 1)
 
 	overview := []byte(output)
 	werr := os.WriteFile("generated/overview.svg", overview, 0644)

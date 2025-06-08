@@ -7,10 +7,8 @@ import (
 	"math/rand"
 	"net/http"
 	"snapshot/internal/helpers"
-	"strconv"
 	"strings"
 
-	"github.com/dustin/go-humanize"
 	"github.com/hasura/go-graphql-client"
 )
 
@@ -218,27 +216,27 @@ func GetName(self *Snapshot) string {
 	return *self._name
 }
 
-func GetStargazers(self *Snapshot) string {
+func GetStargazers(self *Snapshot) int {
 	if self._stargazers != nil {
-		return strconv.Itoa(*self._stargazers)
+		return *self._stargazers
 	}
 
 	getStats(self)
-	return strconv.Itoa(*self._stargazers)
+	return *self._stargazers
 }
 
-func GetForks(self *Snapshot) string {
+func GetForks(self *Snapshot) int {
 	if self._forks != nil {
-		return strconv.Itoa(*self._forks)
+		return *self._forks
 	}
 
 	getStats(self)
-	return strconv.Itoa(*self._forks)
+	return *self._forks
 }
 
-func GetViews(self *Snapshot) string {
+func GetViews(self *Snapshot) int {
 	if self._views != nil {
-		return strconv.Itoa(*self._views)
+		return *self._views
 	}
 
 	total := 0
@@ -268,7 +266,7 @@ func GetViews(self *Snapshot) string {
 	}
 
 	self._views = &total
-	return strconv.Itoa(total)
+	return total
 }
 
 func GetRepos(self *Snapshot) map[string]RepoWithLanguages {
@@ -279,9 +277,9 @@ func GetRepos(self *Snapshot) map[string]RepoWithLanguages {
 	return self._repos
 }
 
-func GetContributions(self *Snapshot) string {
+func GetContributions(self *Snapshot) int {
 	if self._totalContributions != nil {
-		return strconv.Itoa(*self._totalContributions)
+		return *self._totalContributions
 	}
 
 	tmp := 0
@@ -313,12 +311,12 @@ func GetContributions(self *Snapshot) string {
 		total += contributions
 		log.Printf("Made %d contributions in [%s]", contributions, year)
 	}
-	return strconv.Itoa(total)
+	return total
 }
 
-func GetLinesChanged(self *Snapshot) string {
+func GetLinesChanged(self *Snapshot) int64 {
 	if self._linesChanged != nil {
-		return humanize.Comma(int64(self._linesChanged[0] + self._linesChanged[1]))
+		return int64(self._linesChanged[0] + self._linesChanged[1])
 	}
 
 	additions := 0
@@ -403,7 +401,7 @@ func GetLinesChanged(self *Snapshot) string {
 	}
 
 	self._linesChanged = &[2]int{additions, deletions} // [0]=add, [1]=del
-	return humanize.Comma(int64(self._linesChanged[0] + self._linesChanged[1]))
+	return int64(self._linesChanged[0] + self._linesChanged[1])
 }
 
 func GetLanguages(self *Snapshot) map[string]*helpers.LangInfo {
