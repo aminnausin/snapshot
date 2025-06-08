@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/http"
 	"snapshot/internal/helpers"
 	"strconv"
@@ -73,7 +72,7 @@ func getStats(self *Snapshot) {
 
 	repoCursor := graphql.String("")
 	contribCursor := graphql.String("")
-	runKey := rand.Int()
+	// runKey := rand.Int()
 	for {
 		statsQuery, cursors := reposOverview(helpers.StringPtrOrNil(repoCursor), helpers.StringPtrOrNil(contribCursor))
 		helpers.RunQuery(self.queryClient, statsQuery, cursors)
@@ -110,7 +109,7 @@ func getStats(self *Snapshot) {
 
 			if repo.Stargazers.TotalCount > 0 {
 				*self._stargazers += repo.Stargazers.TotalCount
-				log.Printf("Get Stats[%d] -> Added %d Stargazers from %s\n", runKey, repo.Stargazers.TotalCount, repo.NameWithOwner)
+				// log.Printf("Get Stats[%d] -> Added %d Stargazers from %s\n", runKey, repo.Stargazers.TotalCount, repo.NameWithOwner)
 			}
 			*self._forks += repo.ForkCount
 		}
@@ -382,7 +381,7 @@ func GetLinesChanged(self *Snapshot) int64 {
 		var cursor *graphql.String = nil
 		page := 1
 
-		log.Printf("Getting total commit info for %s", repo.NameWithOwner)
+		// log.Printf("Getting total commit info for %s", repo.NameWithOwner)
 		for {
 			// log.Printf("Page: %d", page)
 			var commitQuery CommitStatsQuery
