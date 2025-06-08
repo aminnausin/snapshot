@@ -79,25 +79,24 @@ func getStats(self *Snapshot) {
 		helpers.RunQuery(self.queryClient, statsQuery, cursors)
 
 		self._name = getViewerName(statsQuery)
-
 		repos := statsQuery.Viewer.Repositories.Nodes
-		if !self.ignoreForkedRepos {
-			repos = append(repos, statsQuery.Viewer.RepositoriesContributedTo.Nodes...)
-		}
-		for _, repo := range repos {
-			_, excluded := self.excludedRepos[repo.NameWithOwner]
+		repos = append(repos, statsQuery.Viewer.RepositoriesContributedTo.Nodes...)
 
+		for _, repo := range repos {
+
+			// Ignore excluded repos
+			_, excluded := self.excludedRepos[repo.NameWithOwner]
 			if excluded {
 				continue
 			}
-			self._repos[repo.NameWithOwner] = repo
 
-			addRepoLanguages(self, &repo)
-
-			// Only count stars and forks if the repo is not a fork of another one or IgnoreForkedRepos is set to false
+			// Only count stats if the repo is not a fork of another one or IgnoreForkedRepos is set to false
 			if repo.IsFork && self.ignoreForkedRepos {
 				continue
 			}
+
+			self._repos[repo.NameWithOwner] = repo
+			parseRepoLanguages(self, &repo)
 
 			if repo.Stargazers.TotalCount > 0 {
 				*self._stargazers += repo.Stargazers.TotalCount
@@ -129,7 +128,7 @@ func getStats(self *Snapshot) {
 
 }
 
-func addRepoLanguages(self *Snapshot, repo *RepoWithLanguages) {
+func parseRepoLanguages(self *Snapshot, repo *RepoWithLanguages) {
 	// Initialise languages
 	if self._languages == nil {
 		self._languages = make(map[string]*helpers.LangInfo)
