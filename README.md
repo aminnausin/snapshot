@@ -10,8 +10,8 @@ https://github.community/t/support-theme-context-for-images-in-light-vs-dark-mod
 <img src="https://github.com/aminnausin/snapshot/blob/main/generated/languages.svg#gh-light-mode-only" alt="snapshot languages image for light mode"/>
 </a>
 
-Generate visualizations of GitHub user and repository statistics with GitHub
-Actions. Visualizations can include data for both private repositories, and for
+Generate visualisations of GitHub user and repository statistics with GitHub
+Actions. Visualisations can include data for both private repositories, and for
 repositories you have contributed to, but do not own.
 
 Generated images automatically switch between GitHub light theme and GitHub
@@ -20,6 +20,22 @@ dark theme.
 ## Background
 
 This project is a Go-based reimplementation of [@jstrieb's](https://github.com/jstrieb) github-stats. I built this as a learning exercise and have recreated the all functionality using Go with a few additional features and fixes.
+
+### New Features
+
+- Optionally include profile view counts using [antonkomarev/github-profile-views-counter](https://github.com/antonkomarev/github-profile-views-counter)
+- Better performance, reducing the number of GitHub Action minutes consumed every day
+
+### Fixes
+
+- Correctly differentiate between forked repos and contributions on open source repos
+- Use GitHub GraphQL API to get lines changed instead of the REST API, overcoming the 202 Accepted Errors
+- Make all configuration use environment variables / GitHub secrets instead of requiring edits to the workflow files
+- Probably some others that I forgot about...
+
+### Todo
+
+- Parallelise requests and generation functions to increase speed even further
 
 ## Installation
 
