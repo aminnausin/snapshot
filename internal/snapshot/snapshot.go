@@ -2,17 +2,19 @@ package snapshot
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
 	"snapshot/internal/helpers"
+	"strconv"
 	"strings"
 
 	"github.com/hasura/go-graphql-client"
 )
 
-func NewSnapshot(user string, accessToken string, excludedRepos map[string]struct{}, excludedLangs map[string]struct{}, ignoreForkedRepos bool) Snapshot {
+func NewSnapshot(user string, accessToken string, excludedRepos map[string]struct{}, excludedLangs map[string]struct{}, ignoreForkedRepos bool, includeProfileViews bool) Snapshot {
 	client := &http.Client{Transport: &helpers.TransportWithToken{
 		Token:     accessToken,
 		Transport: http.DefaultTransport,
@@ -24,14 +26,14 @@ func NewSnapshot(user string, accessToken string, excludedRepos map[string]struc
 		})
 
 	return Snapshot{
-		user:              user,
-		accessToken:       accessToken,
-		client:            client,
-		queryClient:       queryClient,
-		excludedRepos:     excludedRepos,
-		excludedLangs:     excludedLangs,
-		ignoreForkedRepos: ignoreForkedRepos,
-
+		user:                user,
+		accessToken:         accessToken,
+		client:              client,
+		queryClient:         queryClient,
+		excludedRepos:       excludedRepos,
+		excludedLangs:       excludedLangs,
+		ignoreForkedRepos:   ignoreForkedRepos,
+		IncludeProfileViews: includeProfileViews,
 		_name:               nil,
 		_stargazers:         nil,
 		_forks:              nil,
@@ -40,6 +42,7 @@ func NewSnapshot(user string, accessToken string, excludedRepos map[string]struc
 		_repos:              nil,
 		_linesChanged:       nil,
 		_views:              nil,
+		_profileViews:       nil,
 	}
 }
 
@@ -410,4 +413,52 @@ func GetLanguages(self *Snapshot) map[string]*helpers.LangInfo {
 	}
 	getStats(self)
 	return self._languages
+}
+
+func GetProfileViews(self *Snapshot) int {
+	// If REPLACE_REPO_VIEWS_WITH_PROFILE_VIEWS
+	// GET SVG
+
+	if self._profileViews != nil {
+		return *self._profileViews
+	}
+
+	svg, err := helpers.RunSVGRestQuery(self.client, fmt.Sprintf("https://komarev.com/ghpvc/?username=%s", self.user), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	decoder := xml.NewDecoder(strings.NewReader(svg))
+
+	var insideText bool
+	for {
+		tok, err := decoder.Token()
+		if err != nil {
+			break
+		}
+
+		switch elem := tok.(type) {
+		case xml.StartElement:
+			if elem.Name.Local == "text" {
+				for _, attr := range elem.Attr {
+					if attr.Name.Local == "x" && attr.Value == "99" {
+						insideText = true
+					}
+				}
+			}
+		case xml.CharData:
+			if insideText {
+				text := strings.TrimSpace(string(elem))
+				if strings.Contains(text, ",") || strings.ContainsAny(text, "0123456789") {
+					log.Fatal(strconv.Atoi(text))
+				}
+			}
+		case xml.EndElement:
+			if elem.Name.Local == "text" {
+				insideText = false
+			}
+		}
+	}
+
+	return 0
 }

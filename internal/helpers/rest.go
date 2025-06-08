@@ -67,6 +67,49 @@ func RunRestQuery(client *http.Client, path string, queryParams map[string]strin
 	return nil, fmt.Errorf("too many 202 responses from GitHub for %s", path)
 }
 
+func RunSVGRestQuery(client *http.Client, path string, queryParams map[string]string) (string, error) {
+	// Make a request to the url
+	// :param client: HTTP client
+	// :param path: Full REST URL
+	// :param params: Query parameters to be passed
+	// :return: deserialized REST JSON output
+
+	req, err := http.NewRequest("GET", path, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to build request: %w", err)
+	}
+
+	// Setup request with headers, parameters and URI encoding
+	q := req.URL.Query()
+	for key, value := range queryParams {
+		q.Add(key, value)
+	}
+	req.URL.RawQuery = q.Encode()
+	req.Header.Set("Accept", "image/svg+xml")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to get response: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("unexpected status %d from %s: %s", resp.StatusCode, path, body)
+	}
+
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "image/svg+xml") {
+		return "", fmt.Errorf("unexpected content type: %s", contentType)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+	return string(body), nil
+}
+
 func (t *TransportWithToken) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Set("Authorization", "Bearer "+t.Token)
 	req.Header.Set("Accept", "application/vnd.github+json")

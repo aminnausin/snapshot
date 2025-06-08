@@ -94,6 +94,7 @@ type Snapshot struct {
 	excludedRepos       map[string]struct{}
 	excludedLangs       map[string]struct{}
 	ignoreForkedRepos   bool
+	IncludeProfileViews bool
 	_name               *string
 	_stargazers         *int
 	_forks              *int
@@ -102,6 +103,7 @@ type Snapshot struct {
 	_repos              map[string]RepoWithLanguages
 	_linesChanged       *[2]int // [0]: Added, [1]: Deleted
 	_views              *int
+	_profileViews       *int
 }
 
 type Contributor struct {

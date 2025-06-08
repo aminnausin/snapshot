@@ -35,6 +35,7 @@ jobs:
         EXCLUDED_REPOS: ${{ secrets.EXCLUDED_REPOS }}
         EXCLUDED_LANGS: ${{ secrets.EXCLUDED_LANGS }}
         EXCLUDE_FORKED_REPOS: ${{ secrets.EXCLUDE_FORKED_REPOS || 'true' }}
+        INCLUDE_PROFILE_VIEWS: ${{ secrets.INCLUDE_PROFILE_VIEWS || 'false' }}
 
     # Commit all changed files to the repository
     - name: Commit to the repo

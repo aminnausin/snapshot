@@ -31,12 +31,19 @@ func generateOverview(s *snapshot.Snapshot) {
 	dat, err := os.ReadFile("templates/overview.svg")
 	check(err)
 	output := strings.Replace(string(dat), "{{ name }}", snapshot.GetName(s), 1)
+
 	output = strings.Replace(output, "{{ stars }}", humanize.Comma(int64(snapshot.GetStargazers(s))), 1)
 	output = strings.Replace(output, "{{ forks }}", humanize.Comma(int64(snapshot.GetForks(s))), 1)
 	output = strings.Replace(output, "{{ contributions }}", humanize.Comma(int64(snapshot.GetContributions(s))), 1)
 	output = strings.Replace(output, "{{ lines_changed }}", humanize.Comma(snapshot.GetLinesChanged(s)), 1)
 	output = strings.Replace(output, "{{ repos }}", humanize.Comma(int64(len(snapshot.GetRepos(s)))), 1)
 	output = strings.Replace(output, "{{ views }}", humanize.Comma(int64(snapshot.GetViews(s))), 1)
+
+	if s.IncludeProfileViews {
+		output = strings.Replace(output, "{{ profile_views }}", humanize.Comma(int64(snapshot.GetProfileViews(s))), 1)
+		output = strings.Replace(output, ` class="hide-profile-views"`, "", 1)
+		output = strings.Replace(output, ` height="210"`, ` height="234"`, 1)
+	}
 
 	overview := []byte(output)
 	werr := os.WriteFile("generated/overview.svg", overview, 0644)
@@ -63,6 +70,10 @@ func generateLanguages(s *snapshot.Snapshot) {
 	output := strings.Replace(string(dat), "{{ progress }}", progress, 1)
 	output = strings.Replace(output, "{{ lang_list }}", langList, 1)
 
+	if s.IncludeProfileViews {
+		output = strings.Replace(output, ` height="210"`, ` height="234"`, 1)
+	}
+
 	overview := []byte(output)
 	werr := os.WriteFile(outputPath, overview, 0644)
 	check(werr)
@@ -83,15 +94,19 @@ func main() {
 	excludedLangs := helpers.GetListEnv("EXCLUDED_LANGS")
 
 	ignoreForkedRepos := helpers.GetBooleanEnv("EXCLUDE_FORKED_REPOS", true)
+	includeProfileViews := helpers.GetBooleanEnv("INCLUDE_PROFILE_VIEWS", false)
+
 	s := snapshot.NewSnapshot(
 		user,
 		accessToken,
 		excludedRepos,
 		excludedLangs,
 		ignoreForkedRepos,
+		includeProfileViews,
 	)
 
 	snapshot.GetRepos(&s)
+	snapshot.GetProfileViews(&s)
 	generateOverview(&s)
 	generateLanguages(&s)
 }
