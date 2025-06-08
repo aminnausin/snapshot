@@ -1,110 +1,23 @@
 package snapshot
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
+	"math/rand"
 	"net/http"
+	"snapshot/internal/helpers"
 	"strconv"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/hasura/go-graphql-client"
 )
 
-type LangInfo struct {
-	Size        int
-	Occurrences int
-	Colour      string
-	Prop        float64
-}
-
-type ReposOverviewQuery struct {
-	Viewer struct {
-		Login string
-		Name  string
-
-		Repositories struct {
-			PageInfo struct {
-				HasNextPage bool
-				EndCursor   string
-			}
-			Nodes []struct {
-				NameWithOwner string
-				Stargazers    struct {
-					TotalCount int
-				}
-				ForkCount int
-				Languages struct {
-					Edges []struct {
-						Size int
-						Node struct {
-							Name  string
-							Color string
-						}
-					}
-				} `graphql:"languages(first: 10, orderBy: {field: SIZE, direction: DESC})"`
-			}
-		} `graphql:"repositories(first: 100, isFork: false, after: $repoCursor)"`
-		RepositoriesContributedTo struct {
-			PageInfo struct {
-				HasNextPage bool
-				EndCursor   string
-			}
-			Nodes []struct {
-				NameWithOwner string
-				Stargazers    struct {
-					TotalCount int
-				}
-				ForkCount int
-				Languages struct {
-					Edges []struct {
-						Size int
-						Node struct {
-							Name  string
-							Color string
-						}
-					}
-				} `graphql:"languages(first: 10, orderBy: {field: SIZE, direction: DESC})"`
-			}
-		} `graphql:"repositoriesContributedTo(first: 100, includeUserRepositories: false, after: $contribCursor, contributionTypes: [COMMIT, PULL_REQUEST, REPOSITORY, PULL_REQUEST_REVIEW])"`
-	} `graphql:"viewer"`
-}
-
-type Snapshot struct {
-	user                string
-	accessToken         string
-	client              *http.Client
-	queryClient         *graphql.Client
-	excludedRepos       map[string]struct{}
-	excludedLangs       map[string]struct{}
-	ignoreForkedRepos   bool
-	_name               *string
-	_stargazers         *int
-	_forks              *int
-	_totalContributions *int
-	_languages          map[string]*LangInfo
-	_repos              map[string]struct{}
-	_linesChanged       *[2]int // [0]: Added, [1]: Deleted
-	_views              *int
-}
-
-type transportWithToken struct {
-	token     string
-	transport http.RoundTripper
-}
-
-func (t *transportWithToken) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.Header.Set("Authorization", "Bearer "+t.token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	return t.transport.RoundTrip(req)
-}
-
 func NewSnapshot(user string, accessToken string, excludedRepos map[string]struct{}, excludedLangs map[string]struct{}, ignoreForkedRepos bool) Snapshot {
-	client := &http.Client{Transport: &transportWithToken{
-		token:     accessToken,
-		transport: http.DefaultTransport,
+	client := &http.Client{Transport: &helpers.TransportWithToken{
+		Token:     accessToken,
+		Transport: http.DefaultTransport,
 	}}
 
 	queryClient := graphql.NewClient("https://api.github.com/graphql", http.DefaultClient).
@@ -132,17 +45,6 @@ func NewSnapshot(user string, accessToken string, excludedRepos map[string]struc
 	}
 }
 
-func runQuery(self Snapshot, query *ReposOverviewQuery, variables map[string]interface{}) {
-	vars := make(map[string]interface{})
-	vars["contribCursor"] = ""
-	vars["repoCursor"] = ""
-
-	err := self.queryClient.Query(context.Background(), &query, variables)
-	if err != nil {
-		log.Fatalf("Failed GraphQL: %s", err)
-	}
-}
-
 func getViewerName(q *ReposOverviewQuery) *string {
 	if q.Viewer.Name != "" {
 		return &q.Viewer.Name
@@ -152,14 +54,6 @@ func getViewerName(q *ReposOverviewQuery) *string {
 	}
 	name := "No Name"
 	return &name
-}
-
-func stringPtrOrNil(v graphql.String) *string {
-	if v == "" {
-		return nil
-	}
-	s := string(v)
-	return &s
 }
 
 func getStats(self *Snapshot) {
@@ -174,18 +68,16 @@ func getStats(self *Snapshot) {
 		tmp := 0
 		self._forks = &tmp
 	}
-	self._repos = make(map[string]struct{})
+	self._repos = make(map[string]RepoWithLanguages)
 
 	repoCursor := graphql.String("")
 	contribCursor := graphql.String("")
+	runKey := rand.Int()
+	for {
+		statsQuery, cursors := reposOverview(helpers.StringPtrOrNil(repoCursor), helpers.StringPtrOrNil(contribCursor))
+		helpers.RunQuery(self.queryClient, statsQuery, cursors)
 
-	stillSearching := true
-
-	for stillSearching {
-		statsQuery, cursors := reposOverview(stringPtrOrNil(repoCursor), stringPtrOrNil(contribCursor))
-		runQuery(*self, &statsQuery, cursors)
-
-		self._name = getViewerName(&statsQuery)
+		self._name = getViewerName(statsQuery)
 
 		repos := statsQuery.Viewer.Repositories.Nodes
 		if !self.ignoreForkedRepos {
@@ -197,42 +89,20 @@ func getStats(self *Snapshot) {
 			if excluded {
 				continue
 			}
+			self._repos[repo.NameWithOwner] = repo
 
-			self._repos[repo.NameWithOwner] = struct{}{}
+			addRepoLanguages(self, &repo)
+
+			// Only count stars and forks if the repo is not a fork of another one or IgnoreForkedRepos is set to false
+			if repo.IsFork && self.ignoreForkedRepos {
+				continue
+			}
 
 			if repo.Stargazers.TotalCount > 0 {
 				*self._stargazers += repo.Stargazers.TotalCount
+				log.Printf("Get Stats[%d] -> Added %d Stargazers from %s\n", runKey, repo.Stargazers.TotalCount, repo.NameWithOwner)
 			}
 			*self._forks += repo.ForkCount
-			for _, langEdge := range repo.Languages.Edges {
-				// Initialise languages
-				if self._languages == nil {
-					self._languages = make(map[string]*LangInfo)
-				}
-
-				// Check if language should be excluded
-				langName := langEdge.Node.Name
-				if _, excluded := self.excludedLangs[strings.ToLower(langName)]; excluded {
-					continue
-				}
-
-				// If already exists, add to size and occurances
-				// Otherwise make new
-				if entry, ok := self._languages[langName]; ok {
-					entry.Size += langEdge.Size
-					entry.Occurrences += 1
-				} else {
-					colour := langEdge.Node.Color
-					if colour == "" {
-						colour = "#000000"
-					}
-					self._languages[langName] = &LangInfo{
-						Size:        langEdge.Size,
-						Occurrences: 1,
-						Colour:      langEdge.Node.Color,
-					}
-				}
-			}
 		}
 		// Update cursors
 		repoCursor = graphql.String(statsQuery.Viewer.Repositories.PageInfo.EndCursor)
@@ -240,10 +110,8 @@ func getStats(self *Snapshot) {
 
 		// Exit if no more pages
 		if !statsQuery.Viewer.Repositories.PageInfo.HasNextPage && !statsQuery.Viewer.RepositoriesContributedTo.PageInfo.HasNextPage {
-			stillSearching = false
+			break
 		}
-
-		stillSearching = false
 	}
 
 	// # TODO: Improve languages to scale by number of contributions to
@@ -260,10 +128,46 @@ func getStats(self *Snapshot) {
 
 }
 
-func reposOverview(ownedCursor, contribCursor *string) (ReposOverviewQuery, map[string]interface{}) {
-	query := ReposOverviewQuery{}
+func addRepoLanguages(self *Snapshot, repo *RepoWithLanguages) {
+	// Initialise languages
+	if self._languages == nil {
+		self._languages = make(map[string]*helpers.LangInfo)
+	}
 
-	vars := map[string]interface{}{
+	for _, langEdge := range repo.Languages.Edges {
+
+		// Check if language should be excluded
+		langName := langEdge.Node.Name
+		if _, excluded := self.excludedLangs[strings.ToLower(langName)]; excluded {
+			continue
+		}
+		// If already exists, add to size and occurances
+		// Otherwise make new
+
+		if entry, ok := self._languages[langName]; ok {
+			entry.Size += langEdge.Size
+			entry.Occurrences += 1
+			continue
+		}
+
+		colour := langEdge.Node.Color
+
+		if colour == "" {
+			colour = "#000000"
+		}
+
+		self._languages[langName] = &helpers.LangInfo{
+			Size:        langEdge.Size,
+			Occurrences: 1,
+			Colour:      colour,
+		}
+	}
+}
+
+func reposOverview(ownedCursor, contribCursor *string) (*ReposOverviewQuery, map[string]any) {
+	query := &ReposOverviewQuery{}
+
+	vars := map[string]any{
 		"repoCursor":    graphql.String(""),
 		"contribCursor": graphql.String(""),
 	}
@@ -277,6 +181,31 @@ func reposOverview(ownedCursor, contribCursor *string) (ReposOverviewQuery, map[
 	}
 
 	return query, vars
+}
+
+// ContribsByYearQuery dynamically makes a graphql query for retrieving contribution counts for a given year.
+// Returns the built query as a string.
+func contribsByYearQuery(year int) string {
+	return fmt.Sprintf(`
+    year%d: contributionsCollection(
+        from: "%d-01-01T00:00:00Z",
+        to: "%d-01-01T00:00:00Z"
+    ) {
+      contributionCalendar {
+        totalContributions
+      }
+    }`, year, year, year+1)
+}
+
+// AllContributionsQuery dynamically builds a graphql query to get all the contribution counts for a given list of years.
+// Returns the built query as a string.
+func allContributionsQuery(years []int) string {
+	fragments := make([]string, len(years))
+	for i, year := range years {
+		fragments[i] = contribsByYearQuery(year)
+	}
+
+	return fmt.Sprintf("query {\n  viewer {\n%s\n  }\n}", strings.Join(fragments, "\n"))
 }
 
 // Properties
@@ -342,7 +271,7 @@ func GetViews(self *Snapshot) string {
 	return strconv.Itoa(total)
 }
 
-func GetRepos(self *Snapshot) map[string]struct{} {
+func GetRepos(self *Snapshot) map[string]RepoWithLanguages {
 	if self._repos != nil {
 		return self._repos
 	}
@@ -355,47 +284,129 @@ func GetContributions(self *Snapshot) string {
 		return strconv.Itoa(*self._totalContributions)
 	}
 
-	*self._totalContributions = 0
+	tmp := 0
+	self._totalContributions = &tmp
 
-	getStats(self)
-	return strconv.Itoa(*self._totalContributions)
+	var yearsQuery ContributionYearsQuery
+
+	err := helpers.RunQuery(self.queryClient, &yearsQuery, nil)
+	if err != nil {
+		log.Fatalf("Failed to get contribution years: %s", err)
+	}
+	years := yearsQuery.Viewer.ContributionsCollection.ContributionYears
+
+	var result map[string]any
+
+	query := allContributionsQuery(years)
+
+	result, err = helpers.RunRawQuery(self.client, query)
+	if err != nil {
+		log.Fatalf("Raw Query Failed: %s", err)
+	}
+
+	viewer := result["viewer"].(map[string]any)
+	total := 0
+	for year, v := range viewer {
+		contribCollection := v.(map[string]any)
+		calendar := contribCollection["contributionCalendar"].(map[string]any)
+		contributions := int(calendar["totalContributions"].(float64))
+		total += contributions
+		log.Printf("Made %d contributions in [%s]", contributions, year)
+	}
+	return strconv.Itoa(total)
 }
 
 func GetLinesChanged(self *Snapshot) string {
 	if self._linesChanged != nil {
-		return strconv.Itoa(self._linesChanged[0] + self._linesChanged[1])
+		return humanize.Comma(int64(self._linesChanged[0] + self._linesChanged[1]))
 	}
 
 	additions := 0
 	deletions := 0
 
-	for repo := range self._repos {
-		uri := fmt.Sprintf("https://api.github.com/repos/%s/stats/contributors", repo)
+	// for repo := range self._repos {
+	// 	uri := fmt.Sprintf("repos/%s/stats/contributors", repo)
 
-		response, err := self.client.Get(uri)
+	// 	response, err := helpers.RunRestQuery(self.client, uri, nil)
 
-		if err != nil {
+	// 	if err != nil {
+	// 		log.Printf("Failed to fetch %s: %v", uri, err)
+	// 		continue
+	// 	}
+
+	// 	var contributors []Contributor
+
+	// 	if err := json.Unmarshal(response, &contributors); err != nil {
+	// 		log.Printf("Failed to parse contributor JSON for %s: %v", repo, err)
+	// 		continue
+	// 	}
+
+	// 	for _, authorObj := range contributors {
+	// 		// Assume user was set in main function from env
+	// 		if authorObj.Author.Login != self.user {
+	// 			continue
+	// 		}
+
+	// 		for _, week := range authorObj.Weeks {
+	// 			additions += week.Additions
+	// 			deletions += week.Deletions
+	// 		}
+	// 	}
+
+	// }
+
+	for _, repo := range self._repos {
+
+		_, excluded := self.excludedRepos[repo.NameWithOwner]
+		if excluded {
 			continue
 		}
 
-		defer response.Body.Close()
-
-		body, err := io.ReadAll(response.Body)
+		owner, name, err := helpers.SplitOwnerRepo(repo.NameWithOwner)
 
 		if err != nil {
-			log.Printf("Failed to read response body: %v", err)
+			// No owner and repo split was found
 			continue
 		}
 
-		fmt.Printf("Response for %s:\n%s\n", repo, string(body))
+		var cursor *graphql.String = nil
+		page := 1
 
+		log.Printf("Getting total commit info for %s", repo.NameWithOwner)
+		for {
+			// log.Printf("Page: %d", page)
+			var commitQuery CommitStatsQuery
+			vars := map[string]any{
+				"owner":        graphql.String(owner),
+				"name":         graphql.String(name),
+				"commitCursor": cursor,
+			}
+
+			helpers.RunQuery(self.queryClient, &commitQuery, vars)
+
+			history := commitQuery.Repository.DefaultBranchRef.Target.Commit.History
+			for _, commit := range history.Nodes {
+				if commit.Author.User.Login == self.user {
+					additions += commit.Additions
+					deletions += commit.Deletions
+				}
+			}
+
+			cursor = &history.PageInfo.EndCursor
+
+			if !history.PageInfo.HasNextPage {
+				break
+			}
+
+			page++
+		}
 	}
 
-	self._linesChanged = &[2]int{additions, deletions}
-	return strconv.Itoa(self._linesChanged[0] + self._linesChanged[1])
+	self._linesChanged = &[2]int{additions, deletions} // [0]=add, [1]=del
+	return humanize.Comma(int64(self._linesChanged[0] + self._linesChanged[1]))
 }
 
-func GetLanguages(self *Snapshot) map[string]*LangInfo {
+func GetLanguages(self *Snapshot) map[string]*helpers.LangInfo {
 	if self._languages != nil {
 		return self._languages
 	}

@@ -2,17 +2,16 @@ package helpers
 
 import (
 	"fmt"
-	"snapshot/internal/snapshot"
 	"sort"
 	"strings"
 )
 
 type LangEntry struct {
 	Name string
-	Data *snapshot.LangInfo
+	Data *LangInfo
 }
 
-func SortLanguages(langs map[string]*snapshot.LangInfo) []LangEntry {
+func SortLanguages(langs map[string]*LangInfo) []LangEntry {
 	sorted := make([]LangEntry, 0, len(langs))
 	for name, data := range langs {
 		sorted = append(sorted, LangEntry{Name: name, Data: data})

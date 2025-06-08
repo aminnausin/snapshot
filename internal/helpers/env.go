@@ -43,7 +43,12 @@ func GetListEnv(name string) (valueList map[string]struct{}) {
 	return
 }
 
-func GetBooleanEnv(name string) bool {
+func GetBooleanEnv(name string, defaultValue bool) bool {
 	value, valueExists := os.LookupEnv(name)
-	return valueExists && strings.ToLower(strings.TrimSpace(value)) != "false"
+
+	if valueExists {
+		return strings.ToLower(strings.TrimSpace(value)) != "false"
+	}
+
+	return defaultValue
 }

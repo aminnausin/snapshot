@@ -32,8 +32,8 @@ func generateOverview(s *snapshot.Snapshot) {
 	output := strings.Replace(string(dat), "{{ name }}", snapshot.GetName(s), 1)
 	output = strings.Replace(output, "{{ stars }}", snapshot.GetStargazers(s), 1)
 	output = strings.Replace(output, "{{ forks }}", snapshot.GetForks(s), 1)
-	output = strings.Replace(output, "{{ contributions }}", snapshot.GetViews(s), 1)
-	output = strings.Replace(output, "{{ lines_changed }}", snapshot.GetViews(s), 1)
+	output = strings.Replace(output, "{{ contributions }}", snapshot.GetContributions(s), 1)
+	output = strings.Replace(output, "{{ lines_changed }}", snapshot.GetLinesChanged(s), 1)
 	output = strings.Replace(output, "{{ repos }}", strconv.Itoa(len(snapshot.GetRepos(s))), 1)
 	output = strings.Replace(output, "{{ views }}", snapshot.GetViews(s), 1)
 
@@ -81,8 +81,7 @@ func main() {
 	excludedRepos := helpers.GetListEnv("EXCLUDED_REPOS")
 	excludedLangs := helpers.GetListEnv("EXCLUDED_LANGS")
 
-	ignoreForkedRepos := helpers.GetBooleanEnv("EXCLUDE_FORKED_REPOS")
-
+	ignoreForkedRepos := helpers.GetBooleanEnv("EXCLUDE_FORKED_REPOS", true)
 	s := snapshot.NewSnapshot(
 		user,
 		accessToken,

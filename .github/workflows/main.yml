@@ -34,7 +34,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         EXCLUDED_REPOS: ${{ secrets.EXCLUDED_REPOS }}
         EXCLUDED_LANGS: ${{ secrets.EXCLUDED_LANGS }}
-        EXCLUDE_FORKED_REPOS: true
+        EXCLUDE_FORKED_REPOS: ${{ secrets.EXCLUDE_FORKED_REPOS || 'true' }}
 
     # Commit all changed files to the repository
     - name: Commit to the repo
