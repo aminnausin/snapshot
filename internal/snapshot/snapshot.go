@@ -14,7 +14,7 @@ import (
 	"github.com/hasura/go-graphql-client"
 )
 
-func NewSnapshot(user string, accessToken string, excludedRepos map[string]struct{}, excludedLangs map[string]struct{}, ignoreForkedRepos bool, includeProfileViews bool) Snapshot {
+func NewSnapshot(user string, accessToken string, excludedRepos map[string]struct{}, excludedLangs map[string]struct{}, includeForkedRepos bool, includeExternalRepos bool, includeProfileViews bool) Snapshot {
 	client := &http.Client{Transport: &helpers.TransportWithToken{
 		Token:     accessToken,
 		Transport: http.DefaultTransport,
@@ -26,23 +26,24 @@ func NewSnapshot(user string, accessToken string, excludedRepos map[string]struc
 		})
 
 	return Snapshot{
-		user:                user,
-		accessToken:         accessToken,
-		client:              client,
-		queryClient:         queryClient,
-		excludedRepos:       excludedRepos,
-		excludedLangs:       excludedLangs,
-		ignoreForkedRepos:   ignoreForkedRepos,
-		IncludeProfileViews: includeProfileViews,
-		_name:               nil,
-		_stargazers:         nil,
-		_forks:              nil,
-		_totalContributions: nil,
-		_languages:          nil,
-		_repos:              nil,
-		_linesChanged:       nil,
-		_views:              nil,
-		_profileViews:       nil,
+		user:                 user,
+		accessToken:          accessToken,
+		client:               client,
+		queryClient:          queryClient,
+		excludedRepos:        excludedRepos,
+		excludedLangs:        excludedLangs,
+		includeForkedRepos:   includeForkedRepos,
+		includeExternalRepos: includeExternalRepos,
+		IncludeProfileViews:  includeProfileViews,
+		_name:                nil,
+		_stargazers:          nil,
+		_forks:               nil,
+		_totalContributions:  nil,
+		_languages:           nil,
+		_repos:               nil,
+		_linesChanged:        nil,
+		_views:               nil,
+		_profileViews:        nil,
 	}
 }
 
@@ -57,10 +58,9 @@ func getViewerName(q *ReposOverviewQuery) *string {
 	return &name
 }
 
+// GetStats collects the user's Github statistics based on the repos they own or have contributed to.
+// It fills out the Snapshot object's attributes for later use.
 func getStats(self *Snapshot) {
-	// """
-	// Get lots of summary statistics using one big query. Sets many attributes
-	// """
 	if self._stargazers == nil {
 		tmp := 0
 		self._stargazers = &tmp
@@ -80,7 +80,11 @@ func getStats(self *Snapshot) {
 
 		self._name = getViewerName(statsQuery)
 		repos := statsQuery.Viewer.Repositories.Nodes
-		repos = append(repos, statsQuery.Viewer.RepositoriesContributedTo.Nodes...)
+
+		// Include repos contributed to without access rights if IncludeExternalRepos is set to true (default is false)
+		if self.includeExternalRepos {
+			repos = append(repos, statsQuery.Viewer.RepositoriesContributedTo.Nodes...)
+		}
 
 		for _, repo := range repos {
 
@@ -90,8 +94,14 @@ func getStats(self *Snapshot) {
 				continue
 			}
 
-			// Only count stats if the repo is not a fork of another one or IgnoreForkedRepos is set to false
-			if repo.IsFork && self.ignoreForkedRepos {
+			// Ignore duplicate repos from RepositoriesContributedTo if already seen in Repositories or the the other way around
+			_, seen := self._repos[repo.NameWithOwner]
+			if seen {
+				continue
+			}
+
+			// Dont count stats if the repo is not a fork of another one or includeForkedRepos is set to false (default)
+			if repo.IsFork && !self.includeForkedRepos {
 				continue
 			}
 
@@ -125,7 +135,6 @@ func getStats(self *Snapshot) {
 			info.Prop = float64(info.Size) * 100.0 / float64(total)
 		}
 	}
-
 }
 
 func parseRepoLanguages(self *Snapshot, repo *RepoWithLanguages) {

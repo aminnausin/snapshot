@@ -42,11 +42,13 @@ This project is a Go-based reimplementation of [@jstrieb's](https://github.com/j
 
     - (Optional) `EXCLUDED` — comma-separated list of repos to exclude (owner/name)
 
-    - (Optional) `EXCLUDED_LANGS` — e.g., html,tex,Jupyter Notebook
+    - (Optional) `EXCLUDED_LANGS` — comma-separated list of languages to exclude from your snapshot. e.g., `html,tex,Jupyter Notebook`
 
-    - (Optional) `EXCLUDE_FORKED_REPOS` — set to true to ignore forked repos with contributions
+    - (Optional) `INCLUDE_FORKED_REPOS` — set to `true` to include repositories you have forked (i.e., copies of someone else’s repo under your account). These are counted only if you are the owner of the forked repo.
 
-    - (Optional) `INCLUDE_PROFILE_VIEWS` — set to true if you're using [antonkomarev/github-profile-views-counter](https://github.com/antonkomarev/github-profile-views-counter)
+    - (Optional) `INCLUDE_EXTERNAL_REPOS` — set to `true` to include repositories you’ve contributed to (e.g. via pull requests or reviews) but don’t own or have write access to, such as open source projects.
+
+    - (Optional) `INCLUDE_PROFILE_VIEWS` — set to `true` if you're using [antonkomarev/github-profile-views-counter](https://github.com/antonkomarev/github-profile-views-counter)
 
 5. Go to the [Actions tab](../../actions/workflows/main.yml?query=workflow%3A"Generate+Snapshot") and click “Run workflow” to generate your stats for the first time.
    The images will be automatically regenerated every 24 hours, but they can

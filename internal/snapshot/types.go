@@ -87,23 +87,24 @@ type ContributionYearsQuery struct {
 }
 
 type Snapshot struct {
-	user                string
-	accessToken         string
-	client              *http.Client
-	queryClient         *graphql.Client
-	excludedRepos       map[string]struct{}
-	excludedLangs       map[string]struct{}
-	ignoreForkedRepos   bool
-	IncludeProfileViews bool
-	_name               *string
-	_stargazers         *int
-	_forks              *int
-	_totalContributions *int
-	_languages          map[string]*helpers.LangInfo
-	_repos              map[string]RepoWithLanguages
-	_linesChanged       *[2]int // [0]: Added, [1]: Deleted
-	_views              *int
-	_profileViews       *int
+	user                 string
+	accessToken          string
+	client               *http.Client
+	queryClient          *graphql.Client
+	excludedRepos        map[string]struct{}
+	excludedLangs        map[string]struct{}
+	includeForkedRepos   bool
+	includeExternalRepos bool
+	IncludeProfileViews  bool
+	_name                *string
+	_stargazers          *int
+	_forks               *int
+	_totalContributions  *int
+	_languages           map[string]*helpers.LangInfo
+	_repos               map[string]RepoWithLanguages
+	_linesChanged        *[2]int // [0]: Added, [1]: Deleted
+	_views               *int
+	_profileViews        *int
 }
 
 type Contributor struct {

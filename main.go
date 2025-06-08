@@ -93,7 +93,8 @@ func main() {
 	excludedRepos := helpers.GetListEnv("EXCLUDED_REPOS")
 	excludedLangs := helpers.GetListEnv("EXCLUDED_LANGS")
 
-	ignoreForkedRepos := helpers.GetBooleanEnv("EXCLUDE_FORKED_REPOS", true)
+	includeForkedRepos := helpers.GetBooleanEnv("INCLUDE_FORKED_REPOS", false)
+	includeExternalRepos := helpers.GetBooleanEnv("INCLUDE_EXTERNAL_REPOS", false)
 	includeProfileViews := helpers.GetBooleanEnv("INCLUDE_PROFILE_VIEWS", false)
 
 	s := snapshot.NewSnapshot(
@@ -101,7 +102,8 @@ func main() {
 		accessToken,
 		excludedRepos,
 		excludedLangs,
-		ignoreForkedRepos,
+		includeForkedRepos,
+		includeExternalRepos,
 		includeProfileViews,
 	)
 

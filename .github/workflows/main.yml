@@ -34,7 +34,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         EXCLUDED_REPOS: ${{ secrets.EXCLUDED_REPOS }}
         EXCLUDED_LANGS: ${{ secrets.EXCLUDED_LANGS }}
-        EXCLUDE_FORKED_REPOS: ${{ secrets.EXCLUDE_FORKED_REPOS || 'true' }}
+        INCLUDE_FORKED_REPOS: ${{ secrets.INCLUDE_FORKED_REPOS || 'false' }}
+        INCLUDE_EXTERNAL_REPOS: ${{ secrets.INCLUDE_EXTERNAL_REPOS || 'false' }}
         INCLUDE_PROFILE_VIEWS: ${{ secrets.INCLUDE_PROFILE_VIEWS || 'false' }}
 
     # Commit all changed files to the repository
