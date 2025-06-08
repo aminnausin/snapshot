@@ -333,6 +333,7 @@ func GetLinesChanged(self *Snapshot) int64 {
 	additions := 0
 	deletions := 0
 
+	// Get lines changed via REST API (far slower, around 10 seconds per repo, results in slightly different count)
 	// for repo := range self._repos {
 	// 	uri := fmt.Sprintf("repos/%s/stats/contributors", repo)
 
@@ -424,9 +425,6 @@ func GetLanguages(self *Snapshot) map[string]*helpers.LangInfo {
 }
 
 func GetProfileViews(self *Snapshot) int {
-	// If REPLACE_REPO_VIEWS_WITH_PROFILE_VIEWS
-	// GET SVG
-
 	if self._profileViews != nil {
 		return *self._profileViews
 	}
@@ -438,7 +436,7 @@ func GetProfileViews(self *Snapshot) int {
 
 	decoder := xml.NewDecoder(strings.NewReader(svg))
 
-	var insideText bool
+	textCount := 0
 	for {
 		tok, err := decoder.Token()
 		if err != nil {
@@ -448,22 +446,17 @@ func GetProfileViews(self *Snapshot) int {
 		switch elem := tok.(type) {
 		case xml.StartElement:
 			if elem.Name.Local == "text" {
-				for _, attr := range elem.Attr {
-					if attr.Name.Local == "x" && attr.Value == "99" {
-						insideText = true
-					}
-				}
+				textCount++
 			}
 		case xml.CharData:
-			if insideText {
+			if textCount == 4 { // Match the 4th <text> node (the numeric profile view count)
 				text := strings.TrimSpace(string(elem))
-				if strings.Contains(text, ",") || strings.ContainsAny(text, "0123456789") {
-					log.Fatal(strconv.Atoi(text))
+				cleaned := strings.ReplaceAll(text, ",", "")
+				value, err := strconv.Atoi(cleaned)
+				if err == nil {
+					self._profileViews = &value
+					return value
 				}
-			}
-		case xml.EndElement:
-			if elem.Name.Local == "text" {
-				insideText = false
 			}
 		}
 	}
