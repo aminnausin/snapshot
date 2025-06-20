@@ -58,15 +58,15 @@ The images will be automatically regenerated every 24 hours, but they can be reg
 
 To add your snapshot to your GitHub Profile README, copy and paste the following. Change the `username` value to your GitHub username.
 
-    ``` md
-    ![](https://raw.githubusercontent.com/username/snapshot/main/generated/overview.svg#gh-dark-mode-only)
-    ![](https://raw.githubusercontent.com/username/snapshot/main/generated/overview.svg#gh-light-mode-only)
-    ```
+``` md
+![](https://raw.githubusercontent.com/username/snapshot/main/generated/overview.svg#gh-dark-mode-only)
+![](https://raw.githubusercontent.com/username/snapshot/main/generated/overview.svg#gh-light-mode-only)
+```
 
-    ``` md
-    ![](https://raw.githubusercontent.com/username/snapshot/main/generated/languages.svg#gh-dark-mode-only)
-    ![](https://raw.githubusercontent.com/username/snapshot/main/generated/languages.svg#gh-light-mode-only)
-    ```
+``` md
+![](https://raw.githubusercontent.com/username/snapshot/main/generated/languages.svg#gh-dark-mode-only)
+![](https://raw.githubusercontent.com/username/snapshot/main/generated/languages.svg#gh-light-mode-only)
+```
 
 ## Configuration Options
 
