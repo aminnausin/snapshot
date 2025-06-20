@@ -46,46 +46,41 @@ This project is a Go-based reimplementation of [@jstrieb's](https://github.com/j
 
     Copy the access token when it is generated – if you lose it, you will have to regenerate the token.
 
-2. [Generate a new repository from this template](https://github.com/aminnausin/snapshot/generate) (⚠️ not the same as forking because it copies everything fresh,
-   without the huge commit history).
-3. Go to the "Secrets" page of your copy of the repository. If this is the
-   README of your copy, click [this link](../../settings/secrets/actions) to go
-   to the "Secrets" page. Otherwise, go to the "Settings" tab of the
-   newly-created repository and go to the "Secrets" page (bottom left).
-4. Add the following secrets:
+2. [Generate a new repository from this template](https://github.com/aminnausin/snapshot/generate).
+
+3. Add the following secrets to your repository at [this link](../../settings/secrets/actions):
 
     - (Required) `ACCESS_TOKEN` — the token you generated earlier
 
-    - (Optional) `EXCLUDED` — comma-separated list of repos to exclude (owner/name)
+4. Run the workflow in the [Actions tab](../../actions/workflows/main.yml?query=workflow%3A"Generate+Snapshot") (“Run workflow” button) to generate your stats for the first time.
 
-    - (Optional) `EXCLUDED_LANGS` — comma-separated list of languages to exclude from your snapshot. e.g., `html,tex,Jupyter Notebook`
+The images will be automatically regenerated every 24 hours, but they can be regenerated manually by triggering the workflow.
 
-    - (Optional) `INCLUDE_FORKED_REPOS` — set to `true` to include repositories you have forked (i.e., copies of someone else’s repo under your account). These are counted only if you are the owner of the forked repo.
+To add your snapshot to your GitHub Profile README, copy and paste the following. Change the `username` value to your GitHub username.
 
-    - (Optional) `INCLUDE_EXTERNAL_REPOS` — set to `true` to include repositories you’ve contributed to (e.g. via pull requests or reviews) but don’t own or have write access to, such as open source projects.
-
-    - (Optional) `INCLUDE_PROFILE_VIEWS` — set to `true` if you're using [antonkomarev/github-profile-views-counter](https://github.com/antonkomarev/github-profile-views-counter)
-
-5. Go to the [Actions tab](../../actions/workflows/main.yml?query=workflow%3A"Generate+Snapshot") and click “Run workflow” to generate your stats for the first time.
-   The images will be automatically regenerated every 24 hours, but they can
-   be regenerated manually by running the workflow this way.
-6. Check the
-   [`generated/`](generated) folder for your snapshot images. To add your snapshot to your GitHub Profile README, copy and paste the
-   following lines of code into your markdown content. Change the `username`
-   value to your GitHub username.
-
-    ```md
+    ``` md
     ![](https://raw.githubusercontent.com/username/snapshot/main/generated/overview.svg#gh-dark-mode-only)
     ![](https://raw.githubusercontent.com/username/snapshot/main/generated/overview.svg#gh-light-mode-only)
     ```
 
-    ```md
+    ``` md
     ![](https://raw.githubusercontent.com/username/snapshot/main/generated/languages.svg#gh-dark-mode-only)
     ![](https://raw.githubusercontent.com/username/snapshot/main/generated/languages.svg#gh-light-mode-only)
     ```
 
-7. Link back to this repository so that others can generate their own
-   snapshot images.
+## Configuration Options
+
+You can add the following (optional) secrets to tweak the generated image:
+
+- `EXCLUDED` — comma-separated list of repos to exclude (owner/name)
+
+- `EXCLUDED_LANGS` — comma-separated list of languages to exclude from your snapshot. e.g., `html,tex,Jupyter Notebook`
+
+- `INCLUDE_FORKED_REPOS` — set to `true` to include repositories you have forked (i.e., copies of someone else’s repo under your account). These are counted only if you are the owner of the forked repo.
+
+- `INCLUDE_EXTERNAL_REPOS` — set to `true` to include repositories you’ve contributed to (e.g. via pull requests or reviews) but don’t own or have write access to, such as open source projects.
+
+- `INCLUDE_PROFILE_VIEWS` — set to `true` if you're using [antonkomarev/github-profile-views-counter](https://github.com/antonkomarev/github-profile-views-counter)
 
 ## Support the Project
 
@@ -94,6 +89,7 @@ There are a few things you can do to support the project:
 - Star the repository (and follow me on GitHub for more)
 - Share and upvote on sites like Twitter, Reddit, and Hacker News
 - Report any bugs, glitches, or errors that you find
+- Link back to this repository so that others can generate their own snapshot images
 
 ## Related Projects
 
