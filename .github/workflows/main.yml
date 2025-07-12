@@ -26,8 +26,8 @@ jobs:
 
     - name: Install dependencies
       run: go mod tidy
-    # Generate all statistics images
-    - name: Generate images
+
+    - name: Generate snapshot images
       run: go run ./main.go
       env:
         ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
@@ -38,7 +38,11 @@ jobs:
         INCLUDE_EXTERNAL_REPOS: ${{ secrets.INCLUDE_EXTERNAL_REPOS || 'false' }}
         INCLUDE_PROFILE_VIEWS: ${{ secrets.INCLUDE_PROFILE_VIEWS || 'false' }}
 
-    # Commit all changed files to the repository
+    - name: Reset Git user identity to GitHub Actions bot
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
     - name: Commit to the repo
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
