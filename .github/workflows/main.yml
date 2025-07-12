@@ -38,13 +38,11 @@ jobs:
         INCLUDE_EXTERNAL_REPOS: ${{ secrets.INCLUDE_EXTERNAL_REPOS || 'false' }}
         INCLUDE_PROFILE_VIEWS: ${{ secrets.INCLUDE_PROFILE_VIEWS || 'false' }}
 
-    - name: Reset Git user identity to GitHub Actions bot
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
     - name: Commit to the repo
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
         commit_message: 'feat: updated snapshot images'
         file_pattern: generated/*
+        commit_user_name: github-actions[bot]
+        commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
+        commit_author: '' # <-- THIS disables fallback to your username
